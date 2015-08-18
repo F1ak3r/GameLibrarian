@@ -109,7 +109,7 @@ namespace GameLibrarian.Data
     /// </summary>
     public class GameType : Item
     {
-        public GameType(String uniqueId, String title, String imagePath, String description, List<StorageFile> executables, List<StorageFile> textfiles, CategoryType category, SubcategoryType subcategory)
+        public GameType(String uniqueId, String title, String imagePath, String description, List<string> executables, List<string> textfiles, CategoryType category, SubcategoryType subcategory)
             : base(uniqueId, title, imagePath, description)
         {
             this._executables = executables;
@@ -132,14 +132,14 @@ namespace GameLibrarian.Data
             set { this.SetProperty(ref this._subcategory, value); }
         }
 
-        private List<StorageFile> _executables;
-        public List<StorageFile> Executables
+        private List<string> _executables;
+        public List<string> Executables
         {
             get { return this._executables; }
         }
 
-        private List<StorageFile> _textfiles;
-        public List<StorageFile> Textfiles
+        private List<string> _textfiles;
+        public List<string> Textfiles
         {
             get { return this._textfiles; }
         }
@@ -150,7 +150,7 @@ namespace GameLibrarian.Data
     /// </summary>
     public class CategoryType : Item
     {
-        public CategoryType(String uniqueId, String title, String imagePath, String description, StorageFolder folder)
+        public CategoryType(String uniqueId, String title, String imagePath, String description, String folder)
             : base(uniqueId, title, imagePath, description)
         {
             Items.CollectionChanged += ItemsCollectionChanged;
@@ -222,8 +222,8 @@ namespace GameLibrarian.Data
             }
         }
 
-        private StorageFolder _folder;
-        public StorageFolder Folder
+        private string _folder;
+        public string Folder
         {
             get { return this._folder; }
         }
@@ -255,7 +255,7 @@ namespace GameLibrarian.Data
 
     public class SubcategoryType : CategoryType
     {
-        public SubcategoryType(String uniqueId, String title, String imagePath, String description, StorageFolder folder)
+        public SubcategoryType(String uniqueId, String title, String imagePath, String description, String folder)
             : base(uniqueId, title, imagePath, description, folder)
         {
             Items.CollectionChanged += ItemsCollectionChanged;
@@ -295,6 +295,11 @@ namespace GameLibrarian.Data
             if (!uniqueId.Equals("AllGroups")) throw new ArgumentException("Only 'AllGroups' is supported as a collection of groups");
             
             return _DataSource.AllGroups;
+        }
+
+        public static void AddGroup(CategoryType group)
+        {
+            _DataSource.AllGroups.Add(group);
         }
 
         public static CategoryType GetGroup(string uniqueId)
@@ -338,7 +343,7 @@ namespace GameLibrarian.Data
                                     f.Name,
                                     "Assets/DarkGray.png",
                                     "A category",
-                                    f
+                                    f.Path
                                     );
 
                 if (hasSubcats.Contains(c.Title))
@@ -354,7 +359,8 @@ namespace GameLibrarian.Data
 
         private async void makeSubcategories(CategoryType category)
         {
-            IReadOnlyList<StorageFolder> folders = await category.Folder.GetFoldersAsync();
+            StorageFolder cfolder = await StorageFolder.GetFolderFromPathAsync(category.Folder);
+            IReadOnlyList<StorageFolder> folders = await cfolder.GetFoldersAsync();
 
             foreach (StorageFolder f in folders)
             {
@@ -365,7 +371,7 @@ namespace GameLibrarian.Data
                             f.Name,
                             "Assets/DarkGray.png",
                             "A subcategory",
-                            f
+                            f.Path
                             );
 
                 category.Subcategories.Add(s);
@@ -378,17 +384,17 @@ namespace GameLibrarian.Data
         { 
                 IReadOnlyList<StorageFile> gameFiles = await gf.GetFilesAsync();
 
-                List<StorageFile> executables, textfiles;
+                List<string> executables, textfiles;
 
                 try {
-                    executables = gameFiles.Where(x => x.Name.EndsWith(".exe")).ToList();
+                    executables = (from f in gameFiles where f.Name.EndsWith(".exe") select f.Path).ToList();
                 }
                 catch (InvalidOperationException e) {
                     executables = null;
                 }
 
                 try {
-                    textfiles = gameFiles.Where(x => x.Name.EndsWith(".txt")).ToList();
+                    textfiles = (from f in gameFiles where f.Name.EndsWith(".txt") select f.Path).ToList();
                 }
                 catch (InvalidOperationException e) {
                     textfiles = null;
@@ -408,12 +414,18 @@ namespace GameLibrarian.Data
         }
 
         private async void makeGames(CategoryType category, SubcategoryType subcategory=null)
-        {
+        {   
             IReadOnlyList<StorageFolder> folders;
             if (subcategory != null)
-                folders = await subcategory.Folder.GetFoldersAsync();
+            {
+                StorageFolder sfolder = await StorageFolder.GetFolderFromPathAsync(subcategory.Folder);
+                folders = await sfolder.GetFoldersAsync();
+            }
             else
-                folders = await category.Folder.GetFoldersAsync();
+            {
+                StorageFolder cfolder = await StorageFolder.GetFolderFromPathAsync(category.Folder);
+                folders = await cfolder.GetFoldersAsync();
+            }
 
             foreach (StorageFolder gf in folders)
             {
@@ -431,7 +443,7 @@ namespace GameLibrarian.Data
                 JsonObject category = new JsonObject();
                 category["Title"] = JsonValue.CreateStringValue(c.Title);
                 category["Description"] = JsonValue.CreateStringValue(c.Description);
-                category["Folder"] = JsonValue.CreateStringValue(c.Folder.Path);
+                category["Folder"] = JsonValue.CreateStringValue(c.Folder);
 
                 JsonArray subcategories = new JsonArray();
                 foreach (SubcategoryType s in c.Subcategories)
@@ -439,7 +451,7 @@ namespace GameLibrarian.Data
                     JsonObject subcategory = new JsonObject();
                     subcategory["Title"] = JsonValue.CreateStringValue(s.Title);
                     subcategory["Description"] = JsonValue.CreateStringValue(s.Description);
-                    subcategory["Folder"] = JsonValue.CreateStringValue(s.Folder.Path);
+                    subcategory["Folder"] = JsonValue.CreateStringValue(s.Folder);
 
                     subcategories.Add(subcategory);
                 }
@@ -453,13 +465,13 @@ namespace GameLibrarian.Data
                     game["Description"] = JsonValue.CreateStringValue(g.Description);
 
                     JsonArray executables = new JsonArray();
-                    foreach (StorageFile e in g.Executables)
-                        executables.Add(JsonValue.CreateStringValue(e.Path));
+                    foreach (string e in g.Executables)
+                        executables.Add(JsonValue.CreateStringValue(e));
                     game["Executables"] = executables;
 
                     JsonArray textfiles = new JsonArray();
-                    foreach (StorageFile t in g.Textfiles)
-                        executables.Add(JsonValue.CreateStringValue(t.Path));
+                    foreach (string t in g.Textfiles)
+                        executables.Add(JsonValue.CreateStringValue(t));
                     game["Textfiles"] = textfiles;
 
                     game["Category"] = JsonValue.CreateStringValue(g.Category.ToString());
@@ -478,69 +490,72 @@ namespace GameLibrarian.Data
             return state;
         }
 
-        public static async void saveJson()
-        {
-            StorageFolder folder = ApplicationData.Current.LocalFolder;
-            StorageFile jsonFile = await folder.CreateFileAsync("games.json", CreationCollisionOption.ReplaceExisting);
-
-            await FileIO.WriteTextAsync(jsonFile, dataToJson().Stringify());
-        }
-
-        private async static void jsonToData(string json)
+        private void jsonToData(string json)
         {
             JsonObject state = JsonObject.Parse(json);
 
             foreach (var c in state["Categories"].GetArray())
             {
                 JsonObject cObj = c.GetObject();
-                CategoryType category = new CategoryType(cObj["Title"].Stringify().Replace(" ", "-"),
-                                    cObj["Title"].Stringify(),
+                CategoryType category = new CategoryType(cObj["Title"].GetString().Replace(" ", "-"),
+                                    cObj["Title"].GetString(),
                                     "Assets/DarkGray.png",
-                                    cObj["Description"].Stringify(),
-                                    await StorageFolder.GetFolderFromPathAsync(cObj["Folder"].Stringify())
+                                    cObj["Description"].GetString(),
+                                    cObj["Folder"].GetString()
                                     );
+
+                //DataSource.AddGroup(category);
+                this.AllGroups.Add(category);
 
                 foreach (var s in cObj["Subcategories"].GetArray())
                 {
                     JsonObject sObj = s.GetObject();
-                    SubcategoryType subcategory =  new SubcategoryType(sObj["Title"].Stringify().Replace(" ", "-"),
-                                        sObj["Title"].Stringify(),
+                    SubcategoryType subcategory = new SubcategoryType(sObj["Title"].GetString().Replace(" ", "-"),
+                                        sObj["Title"].GetString(),
                                         "Assets/DarkGray.png",
-                                        sObj["Description"].Stringify(),
-                                        await StorageFolder.GetFolderFromPathAsync(sObj["Folder"].Stringify())
+                                        sObj["Description"].GetString(),
+                                        sObj["Folder"].GetString()
                                         );
                     category.Subcategories.Add(subcategory);
                 }
 
-                foreach (var g in state["Games"].GetArray())
+                foreach (var g in cObj["Games"].GetArray())
                 {
                     JsonObject gObj = g.GetObject();
 
-                    List<StorageFile> executables = new List<StorageFile>();
+                    List<string> executables = new List<string>();
                     foreach (var exe in gObj["Executables"].GetArray())
                     {
-                        executables.Add(await StorageFile.GetFileFromPathAsync(exe.Stringify()));
+                        executables.Add(exe.GetString());
                     }
 
-                    List<StorageFile> textfiles = new List<StorageFile>();
+                    List<string> textfiles = new List<string>();
                     foreach (var txt in gObj["Textfiles"].GetArray())
                     {
-                        textfiles.Add(await StorageFile.GetFileFromPathAsync(txt.Stringify()));
+                        textfiles.Add(txt.Stringify());
                     }
 
-                    GameType game = new GameType(gObj["Title"].Stringify().Replace(" ", "-"),
-                                        gObj["Title"].Stringify(),
+                    GameType game = new GameType(gObj["Title"].GetString().Replace(" ", "-"),
+                                        gObj["Title"].GetString(),
                                         "Assets/DarkGray.png",
-                                        gObj["Description"].Stringify(),
+                                        gObj["Description"].GetString(),
                                         executables,
                                         textfiles,
                                         category,
-                                        category.Subcategories.FirstOrDefault(subcat => gObj["Subcategory"].Stringify() == subcat.Title)
+                                        category.Subcategories.FirstOrDefault(subcat => gObj["Subcategory"].GetString() == subcat.Title)
                                         );
 
                     category.Items.Add(game);
                 }
             }
+        }
+
+        public static async void saveJson()
+        {
+            StorageFolder folder = ApplicationData.Current.LocalFolder;
+            StorageFile jsonFile = await folder.CreateFileAsync("games.json", CreationCollisionOption.ReplaceExisting);
+
+            await FileIO.WriteTextAsync(jsonFile, dataToJson().ToString());
         }
 
         public async void loadJson()

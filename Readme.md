@@ -23,10 +23,6 @@ Games
 
 *Step 2:* Launch the app and provided it with the main folder.
 
-##Issues
-
-Currently crashes the second time you open it because I haven't quite figured out a strategy to deal with the Windows app file/folder access permission system that doesn't let you access files by random paths. I can foresee the Metro sandbox making a lot of the features I want to implement difficult or even impossible. Good for security, but severely limiting if you want to make an app that actually does something useful in the desktop environment.
-
 ##Upcoming features
 
 * In-app configuration of subcategories (currently hardcoded to match my collection)
