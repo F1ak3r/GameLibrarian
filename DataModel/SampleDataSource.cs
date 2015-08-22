@@ -109,7 +109,7 @@ namespace GameLibrarian.Data
     /// </summary>
     public class GameType : Item
     {
-        public GameType(String uniqueId, String title, String imagePath, String description, List<string> executables, List<string> textfiles, CategoryType category, SubcategoryType subcategory)
+        public GameType(String uniqueId, String title, String imagePath, String description, ObservableCollection<string> executables, ObservableCollection<string> textfiles, CategoryType category, SubcategoryType subcategory)
             : base(uniqueId, title, imagePath, description)
         {
             this._executables = executables;
@@ -132,14 +132,14 @@ namespace GameLibrarian.Data
             set { this.SetProperty(ref this._subcategory, value); }
         }
 
-        private List<string> _executables;
-        public List<string> Executables
+        private ObservableCollection<string> _executables;
+        public ObservableCollection<string> Executables
         {
             get { return this._executables; }
         }
 
-        private List<string> _textfiles;
-        public List<string> Textfiles
+        private ObservableCollection<string> _textfiles;
+        public ObservableCollection<string> Textfiles
         {
             get { return this._textfiles; }
         }
@@ -384,17 +384,17 @@ namespace GameLibrarian.Data
         { 
                 IReadOnlyList<StorageFile> gameFiles = await gf.GetFilesAsync();
 
-                List<string> executables, textfiles;
+                ObservableCollection<string> executables, textfiles;
 
                 try {
-                    executables = (from f in gameFiles where f.Name.EndsWith(".exe") select f.Path).ToList();
+                    executables = (ObservableCollection<string>)(from f in gameFiles where f.Name.EndsWith(".exe") select f.Path);
                 }
                 catch (InvalidOperationException e) {
                     executables = null;
                 }
 
                 try {
-                    textfiles = (from f in gameFiles where f.Name.EndsWith(".txt") select f.Path).ToList();
+                    textfiles = (ObservableCollection<string>)(from f in gameFiles where f.Name.EndsWith(".txt") select f.Path);
                 }
                 catch (InvalidOperationException e) {
                     textfiles = null;
@@ -523,13 +523,13 @@ namespace GameLibrarian.Data
                 {
                     JsonObject gObj = g.GetObject();
 
-                    List<string> executables = new List<string>();
+                    ObservableCollection<string> executables = new ObservableCollection<string>();
                     foreach (var exe in gObj["Executables"].GetArray())
                     {
                         executables.Add(exe.GetString());
                     }
 
-                    List<string> textfiles = new List<string>();
+                    ObservableCollection<string> textfiles = new ObservableCollection<string>();
                     foreach (var txt in gObj["Textfiles"].GetArray())
                     {
                         textfiles.Add(txt.Stringify());
